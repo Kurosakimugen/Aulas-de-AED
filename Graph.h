@@ -56,6 +56,8 @@ public:
 template <class T>
 class Graph {
 	vector<Vertex<T> *> vertexSet;    // vertex set
+    void dfsVisit(Vertex<T> *v,  vector<T> & res) const;
+    bool dfsIsDAG(Vertex<T> *v) const;
 public:
     Vertex<T> *findVertex(const T &in) const;
     int getNumVertex() const;
@@ -64,7 +66,9 @@ public:
 	bool addEdge(const T &sourc, const T &dest, double w);
 	bool removeEdge(const T &sourc, const T &dest);
     vector<Vertex<T> * > getVertexSet() const;
-    int inDegree(const T &v) const;
+	vector<T> dfs() const;
+	vector<T> dfs(const T & source) const;
+	vector<T> bfs(const T &source) const;
 };
 
 /****************** Provided constructors and functions ********************/
@@ -158,72 +162,56 @@ void Vertex<T>::setAdj(const vector<Edge<T>> &adj) {
 }
 
 
-//=============================================================================
-// Exercise 1: Graph implementation
-//=============================================================================
-// Subexercise 1.1: addVertex
-//=============================================================================
 /*
  *  Adds a vertex with a given content or info (in) to a graph (this).
  *  Returns true if successful, and false if a vertex with that content already exists.
  */
-//TODO
 template <class T>
 bool Graph<T>::addVertex(const T &in) {
-    if (findVertex(in) == NULL) {
-        vertexSet.push_back(new Vertex<T>(in));
-        return true;
-    }
-    return false;
+	if ( findVertex(in) != NULL)
+		return false;
+	vertexSet.push_back(new Vertex<T>(in));
+	return true;
 }
 
-//=============================================================================
-// Subexercise 1.2: addEdge
-//=============================================================================
+
 /*
  * Adds an edge to a graph (this), given the contents of the source and
  * destination vertices and the edge weight (w).
  * Returns true if successful, and false if the source or destination vertex does not exist.
  */
-//TODO
 template <class T>
 bool Graph<T>::addEdge(const T &sourc, const T &dest, double w) {
-    if (findVertex(sourc) != NULL && findVertex(dest) != NULL) {
-        Vertex<T> *Source = findVertex(sourc);
-        Vertex<T> *Dest = findVertex(dest);
-        Source->addEdge(Dest, w);
-        return true;
-    }
-    return false;
+	auto v1 = findVertex(sourc);
+	auto v2 = findVertex(dest);
+	if (v1 == NULL || v2 == NULL)
+		return false;
+	v1->addEdge(v2,w);
+	return true;
 }
 
 /*
  * Auxiliary function to add an outgoing edge to a vertex (this),
  * with a given destination vertex (d) and edge weight (w).
  */
-//TODO
 template <class T>
 void Vertex<T>::addEdge(Vertex<T> *d, double w) {
-    adj.push_back(Edge<T>(d, w));
+	adj.push_back(Edge<T>(d, w));
 }
 
-//=============================================================================
-// Subexercise 1.3: removeEdge
-//=============================================================================
+
 /*
  * Removes an edge from a graph (this).
  * The edge is identified by the source (sourc) and destination (dest) contents.
  * Returns true if successful, and false if such edge does not exist.
  */
-//TODO
 template <class T>
 bool Graph<T>::removeEdge(const T &sourc, const T &dest) {
-    if (findVertex(sourc) != NULL && findVertex(dest) != NULL) {
-        Vertex<T> *Source = findVertex(sourc);
-        Vertex<T> *Dest = findVertex(dest);
-        return Source->removeEdgeTo(Dest);
-    }
-    return false;
+	auto v1 = findVertex(sourc);
+	auto v2 = findVertex(dest);
+	if (v1 == NULL || v2 == NULL)
+		return false;
+	return v1->removeEdgeTo(v2);
 }
 
 /*
@@ -231,47 +219,116 @@ bool Graph<T>::removeEdge(const T &sourc, const T &dest) {
  * from a vertex (this).
  * Returns true if successful, and false if such edge does not exist.
  */
-//TODO
 template <class T>
 bool Vertex<T>::removeEdgeTo(Vertex<T> *d) {
-    for (typename vector<Edge<T>>::iterator i = adj.begin(); i != adj.end(); i++) {
-        if (i->getDest() == d) {
-            adj.erase(i);
-            return true;
-        }
-    }
+	for (auto it = adj.begin(); it != adj.end(); it++)
+		if (it->dest  == d) {
+			adj.erase(it);
+			return true;
+		}
 	return false;
 }
 
-//=============================================================================
-// Subexercise 1.4: removeVertex
-//=============================================================================
 /*
  *  Removes a vertex with a given content (in) from a graph (this), and
  *  all outgoing and incoming edges.
  *  Returns true if successful, and false if such vertex does not exist.
  */
-//TODO
 template <class T>
 bool Graph<T>::removeVertex(const T &in) {
-    Vertex<T> *target = findVertex(in);
-    if (target != NULL) {
-        for (auto i : vertexSet) {
-            if (i != target) {
-                removeEdge(i->info, in);
-            }
-        }
-        for (typename vector<Vertex<T> *>::iterator it = vertexSet.begin(); it != vertexSet.end(); it++) {
-            if (*it == target) {
-                vertexSet.erase(it);
-            }
-        }
-        return true;
-    }
+	for (auto it = vertexSet.begin(); it != vertexSet.end(); it++)
+		if ((*it)->info  == in) {
+			auto v = *it;
+			vertexSet.erase(it);
+			for (auto u : vertexSet)
+				u->removeEdgeTo(v);
+			delete v;
+			return true;
+		}
 	return false;
 }
 
+
+//=============================================================================
+// Exercise 1.1: Depth First Search
+//=============================================================================
+// Subexercise 1.1.1: Depth First Search (Graph Traversal)
+//=============================================================================
+/*
+ * Performs a depth-first search (dfs) traversal in a graph (this).
+ * Returns a vector with the contents of the vertices by dfs order.
+ */
+// TODO
+template <class T>
+vector<T> Graph<T>::dfs() const {
+    vector<T> res;
+    //Marcar todos os vertices como nao visitados
+    for (auto i : vertexSet) {
+        i->visited = false;
+    }
+    //Iterar sobre todos o vertices e realizar um dfs comencando num nao visitado
+    for (auto i : vertexSet) {
+        dfsVisit(i,res);
+    }
+    return res;
+}
+
+/*
+ * Auxiliary function that visits a vertex (v) and its adjacent, recursively.
+ * Updates a parameter with the list of visited node contents.
+ */
+// TODO
+template <class T>
+void Graph<T>::dfsVisit(Vertex<T> *v, vector<T> & res) const {
+    if(v->visited == false) {
+        res.push_back(v->info);
+    }
+    v->visited = true;
+    for (Edge<T> j : v->adj) {
+        auto k = j.getDest();
+        if (k->visited == false) {
+            dfsVisit(k,res);
+        }
+    }
+}
+
+//=============================================================================
+// Subexercise 1.1.2: Depth First Search (From a source node)
+//=============================================================================
+/*
+ * Performs a depth-first search (dfs) in a graph (this).
+ * Returns a vector with the contents of the vertices by dfs order,
+ * from the source node.
+ */
+// TODO
+template <class T>
+vector<T> Graph<T>::dfs(const T & source) const {
+    vector<T> res;
+    //Marcar todos os vertices como nao visitados
+    for (auto i : vertexSet) {
+        i->visited = false;
+    }
+    auto src = findVertex(source);
+    dfsVisit(src, res);
+    return res;
+}
+
+
+//=============================================================================
+// Exercise 2: Breadth-First Search
+//=============================================================================
+/*
+ * Performs a breadth-first search (bfs) in a graph (this), starting
+ * from the vertex with the given source contents (source).
+ * Returns a vector with the contents of the vertices by bfs order.
+ */
+// TODO
+template <class T>
+vector<T> Graph<T>::bfs(const T & source) const {
+    // HINT: Use the flag "visited".
+    // HINT: Use the "queue" class to temporarily store the vertices.
+	vector<T> res;
+	return res;
+}
+
 #endif /* GRAPH_H_ */
-
-
-
